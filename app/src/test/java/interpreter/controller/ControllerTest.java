@@ -10,29 +10,54 @@ import interpreter.model.adt.MyStack;
 import interpreter.model.exp.ArithExp;
 import interpreter.model.exp.ArithOp;
 import interpreter.model.exp.ValueExp;
-import interpreter.model.exp.VarExp;
 import interpreter.model.stmt.AssignStmt;
 import interpreter.model.stmt.CompStmt;
 import interpreter.model.stmt.IStmt;
-import interpreter.model.stmt.PrintStmt;
 import interpreter.model.stmt.VarDeclStmt;
 import interpreter.model.type.IntType;
 import interpreter.model.value.IntValue;
 import interpreter.repository.Repository;
+import interpreter.view.Examples;
 import org.junit.jupiter.api.Test;
 
 class ControllerTest {
-    private static final IStmt EX1 = new CompStmt(new VarDeclStmt("v", new IntType()),
-            new CompStmt(new AssignStmt("v", new ValueExp(new IntValue(2))),
-                    new PrintStmt(new VarExp("v"))));
-
     private static PrgState newState(IStmt program) {
         return new PrgState(new MyStack<>(), new MyDictionary<>(), new MyList<>(), program);
     }
 
+    private static PrgState run(IStmt program) throws MyException {
+        PrgState state = newState(program);
+        new Controller(new Repository(state), false).allStep();
+        return state;
+    }
+
+    @Test
+    void example1PrintsTwo() throws MyException {
+        PrgState state = run(Examples.EX1);
+        assertTrue(state.getExeStack().isEmpty());
+        assertEquals(1, state.getOut().size());
+        assertEquals(new IntValue(2), state.getOut().get(0));
+        assertEquals(new IntValue(2), state.getSymTable().lookup("v"));
+    }
+
+    @Test
+    void example2PrintsEighteen() throws MyException {
+        PrgState state = run(Examples.EX2);
+        assertTrue(state.getExeStack().isEmpty());
+        assertEquals(new IntValue(18), state.getOut().get(0));
+        assertEquals(new IntValue(17), state.getSymTable().lookup("a"));
+    }
+
+    @Test
+    void example3TakesTheThenBranchAndPrintsTwo() throws MyException {
+        PrgState state = run(Examples.EX3);
+        assertTrue(state.getExeStack().isEmpty());
+        assertEquals(new IntValue(2), state.getOut().get(0));
+    }
+
     @Test
     void oneStepFollowsTheTraceOfSection3_3() throws MyException {
-        PrgState state = newState(EX1);
+        PrgState state = newState(Examples.EX1);
         Controller ctrl = new Controller(new Repository(state), false);
         String[][] expected = {
                 {"{int v | (v = 2; print(v))}", "{}", "{}"},
@@ -50,16 +75,8 @@ class ControllerTest {
     }
 
     @Test
-    void allStepRunsUntilTheStackIsEmpty() throws MyException {
-        PrgState state = newState(EX1);
-        new Controller(new Repository(state), false).allStep();
-        assertTrue(state.getExeStack().isEmpty());
-        assertEquals(new IntValue(2), state.getOut().get(0));
-    }
-
-    @Test
     void oneStepOnEmptyStackThrows() throws MyException {
-        PrgState state = newState(EX1);
+        PrgState state = newState(Examples.EX1);
         Controller ctrl = new Controller(new Repository(state), false);
         ctrl.allStep();
         var ex = assertThrows(StatementException.class, () -> ctrl.oneStep(state));
